@@ -30,13 +30,17 @@ class Agent:
                     "role": "tool",
                     "tool_call_id": tool_call.id,
                     "name":tool_call.function.name,
-                    "content": str(tool_result)
-                })
+                    "content": str(tool_result),
+                    "isError": getattr(tool_result, "isError", False)
+                    })
                 response = self.LLM.chat_completion(
                     messages=self.history,
                     temperature=temperature,
                     max_tokens=max_tokens
                 )
+            for msg in self.history:
+                if msg.get("role") == "tool" and not msg.get("isError", False):
+                    msg["content"] = "Tool Call successful, contents where forgotten for memory efficiency."
             reply = response.choices[0].message.content
             self.history.append({"role": "assistant", "content": reply})
             return reply
