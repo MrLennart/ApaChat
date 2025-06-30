@@ -10,6 +10,8 @@ from ..Agent.Agent import url_to_name
 from ..LLM.LLM import available_LLM_providers
 
 from urllib.parse import urlparse
+from tkhtmlview import HTMLScrolledText
+import markdown
 
 
 
@@ -32,8 +34,11 @@ class AsyncTk(tk.Tk):
         self.status_label = tk.Label(self, text="Connecting...", fg="blue")
         self.status_label.pack(side='top', fill='x')
 
-        self.chat_display = ScrolledText(self, state='disabled')
+        self.chat_display = HTMLScrolledText(self)
         self.chat_display.pack(expand=True, fill='both')
+
+        self.chat_history_html = ""
+
 
         self.entry = tk.Entry(self)
         self.entry.pack(fill='x')
@@ -172,10 +177,19 @@ class AsyncTk(tk.Tk):
         self.append_chat("Agent", response)
 
     def append_chat(self, sender, msg):
-        self.chat_display.configure(state='normal')
-        self.chat_display.insert(tk.END, f"{sender}: {msg}\n")
-        self.chat_display.configure(state='disabled')
-        self.chat_display.yview(tk.END)
+        if sender == "User":
+            # Escape &, <, > to safely include in HTML
+            safe_text = msg.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            new_html = f"<p><b>{sender}:</b> {safe_text}</p>"
+        else:  # Agent message, which may contain Markdown
+            html_content = markdown.markdown(msg)        # convert Markdown text to HTML
+            new_html = f"<p><b>{sender}:</b></p>\n{html_content}"
+        # Append the new HTML to history and update display
+        self.chat_display.config(state='normal')        # enable editing to update content
+        self.chat_history_html += new_html
+        self.chat_display.set_html(self.chat_history_html)
+        self.chat_display.config(state='disabled')      # disable to make read-only
+        self.chat_display.yview(tk.END)                 # scroll to bottom
 
 
 
