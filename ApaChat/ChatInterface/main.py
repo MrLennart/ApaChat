@@ -7,7 +7,7 @@ from ..Agent.Agent import url_to_name
 from ..LLM.LLM import available_LLM_providers
 
 from tkhtmlview import HTMLScrolledText
-import markdown
+from markdown import markdown
 
 
 
@@ -30,7 +30,8 @@ class AsyncTk(tk.Tk):
         self.status_label = tk.Label(self, text="Connecting...", fg="blue")
         self.status_label.pack(side='top', fill='x')
 
-        self.chat_display = HTMLScrolledText(self)
+        self.chat_display = HTMLScrolledText(self, background="#1e1e1e", foreground="#dddddd", borderwidth=0)
+
         self.chat_display.pack(expand=True, fill='both')
 
         self.chat_history_html = ""
@@ -172,20 +173,29 @@ class AsyncTk(tk.Tk):
             response = f"[Error: {e}]"
         self.append_chat("Agent", response)
 
+
     def append_chat(self, sender, msg):
+        # Ensure chat history exists
+        if not hasattr(self, "chat_history_html"):
+            self.chat_history_html = ""
+
+        # Inline style applied to each message wrapper
+        style = 'style="color:#dddddd; font-family:Arial, sans-serif;"'
+        label_style = 'style="color:#ffffff;"'
+
         if sender == "User":
-            # Escape &, <, > to safely include in HTML
             safe_text = msg.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-            new_html = f"<p><b>{sender}:</b> {safe_text}</p>"
-        else:  # Agent message, which may contain Markdown
-            html_content = markdown.markdown(msg)        # convert Markdown text to HTML
-            new_html = f"<p><b>{sender}:</b></p>\n{html_content}"
-        # Append the new HTML to history and update display
-        self.chat_display.config(state='normal')        # enable editing to update content
+            new_html = f'<p {style}><b {label_style}>{sender}:</b> {safe_text}</p>'
+        else:
+            html_content = markdown(msg)
+            # Inject style into all <p> tags in the markdown result
+            html_content = html_content.replace("<p>", f"<p {style}>")
+            html_content = html_content.replace("<li>", f"<li {style}>")
+            new_html = f'<p {style}><b {label_style}>{sender}:</b></p>{html_content}'
+
         self.chat_history_html += new_html
         self.chat_display.set_html(self.chat_history_html)
-        self.chat_display.config(state='disabled')      # disable to make read-only
-        self.chat_display.yview(tk.END)                 # scroll to bottom
+        self.chat_display.yview(tk.END)
 
 
 
@@ -556,6 +566,10 @@ class AsyncTk(tk.Tk):
     def on_close(self):
         self.loop.stop()
         self.destroy()
+
+
+
+    
 
 if __name__ == "__main__":
     agent = Agent()
