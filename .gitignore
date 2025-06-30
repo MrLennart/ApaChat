@@ -1,0 +1,18 @@
+# 🐍 Python-Cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# 🛠️ PyInstaller-Artefakte
+build/
+dist/
+*.spec
+
+# 💻 Editordateien
+.vscode/
+.idea/
+
+# 🧪 Testoutput, Tempdateien
+*.log
+*.tmp
+
