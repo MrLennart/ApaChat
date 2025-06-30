@@ -73,10 +73,7 @@ class Agent:
 
     async def connect_MCP(self, server_url: str, auth_method: str = "none", token: str = None, oauth_server_url: str = None):
         client = MCPClient()
-        parsed = urlparse(server_url)
-        host = parsed.hostname.split(".")[-2] or ""
-        port = f"{parsed.port}" if parsed.port else ""
-        name=f"{host}{port}"
+        name= url_to_name(server_url)
         self.mcp[name] = {"client": client, "connected": False, "tools": []}
         try:
             tools = await client.connect_to_sse_server(server_url, auth_method, token, oauth_server_url)
@@ -132,3 +129,11 @@ class Agent:
             return (f"Tool '{tool_name}' execution returned no result")
 
 
+def url_to_name(url: str) -> str:
+    """
+    Converts a URL to a name by extracting the hostname and port.
+    """
+    parsed = urlparse(url)
+    host = parsed.hostname.split(".")[-2] or ""
+    port = f"{parsed.port}" if parsed.port else ""
+    return f"{host}{port}"

@@ -6,18 +6,13 @@ import asyncio
 import threading
 from functools import partial
 from ..Agent.Agent import Agent
+from ..Agent.Agent import url_to_name
 from ..LLM.LLM import available_LLM_providers
 
 from urllib.parse import urlparse
 
 
 
-def url_to_key(url):
-    """Convert a URL like https://localhost:52000/sse/ to localhost52000"""
-    parsed = urlparse(url)
-    host = parsed.hostname or ""
-    port = f"{parsed.port}" if parsed.port else ""
-    return f"{host}{port}"
 
 
 try:
@@ -92,6 +87,7 @@ class AsyncTk(tk.Tk):
                     chosen_model = model if model in models else models[0]
                     self.agent.LLM.model = chosen_model
                     self.agent.selected_model = chosen_model
+                
             except Exception as e:
                 print(f"Auto-connect to LLM failed: {e}")
         mcp_list_json = None
@@ -107,7 +103,7 @@ class AsyncTk(tk.Tk):
             for url in saved_servers:
                 cred_json = None
                 try:
-                    key_name = f"MCP_{url_to_key(url)}"
+                    key_name = f"MCP_{url_to_name(url)}"
                     cred_json = keyring.get_password("ApaChat", key_name)
                 except Exception as e:
                     print(f"Error accessing credentials for MCP {url}: {e}")
@@ -117,12 +113,13 @@ class AsyncTk(tk.Tk):
                 auth = data.get("auth")
                 token = data.get("token")
                 oauth_url = data.get("oauth_url")
+                server_name = url_to_name(url)
                 try:
                     await self.agent.connect_MCP(url, auth, token if token not in [None, ""] else None,
                                                  oauth_url if oauth_url not in [None, ""] else None)
                 except Exception as e:
                     print(f"Auto-connect to MCP {url} failed: {e}")
-                    self.agent.mcp[url] = {
+                    self.agent.mcp[server_name] = {
                         "connected": False,
                         "url": url,
                         "auth": auth,
@@ -130,6 +127,27 @@ class AsyncTk(tk.Tk):
                         "oauth_url": oauth_url,
                         "tools": []
                     }
+                try:
+                    # Nach dem Laden der Credentials und dem Verbindungsaufbau:
+                    active_tools = data.get("active_tools", [])
+                    for tool in self.agent.mcp[server_name]["tools"]:
+                        try:
+                            tool["active"] = tool["name"] in active_tools
+                        except KeyError:
+                            print(f"Tool {tool} missing 'name' key, skipping activation update")
+                except Exception as e:
+                    print(f"Error updating active tools for MCP {url}: {e}")
+
+    def save_active_tools_for_server(self, server_name):
+        if not keyring:
+            return
+        key_name = f"MCP_{server_name}"
+        cred_json = keyring.get_password("ApaChat", key_name)
+        if cred_json:
+            data = json.loads(cred_json)
+            tools = self.agent.mcp[server_name]["tools"]
+            data["active_tools"] = [tool["name"] for tool in tools if tool.get("active")]
+            keyring.set_password("ApaChat", key_name, json.dumps(data))    
 
     def poll_loop(self):
         try:
@@ -386,7 +404,10 @@ class AsyncTk(tk.Tk):
                 cb = tk.Checkbutton(scroll_frame, text=tool.get("name", "Unknown"), variable=var)
                 cb.var = var
                 cb.tool = tool
-                cb.config(command=lambda b=cb: b.tool.update({'active': b.var.get()}))
+                def on_toggle(b=cb):
+                    b.tool.update({'active': b.var.get()})
+                    self.save_active_tools_for_server(server_url)
+                cb.config(command=on_toggle)
                 cb.pack(anchor='w')
                 tool_checkboxes.append(cb)
             # Filter functionality for tools list
@@ -399,6 +420,11 @@ class AsyncTk(tk.Tk):
                     if visible:
                         cb.pack(anchor='w')
             filter_var.trace_add("write", update_tool_filter)
+            def on_close():
+                self.save_active_tools_for_server(server_url)
+                tool_win.destroy()
+
+            tool_win.protocol("WM_DELETE_WINDOW", on_close)
 
         # Double-click event on server list to connect or open tools
         def on_server_double_click(event):
@@ -489,10 +515,12 @@ class AsyncTk(tk.Tk):
                         "url": url,
                         "auth": auth_method,
                         "token": token_val if token_val is not None else "",
-                        "oauth_url": oauth_val if oauth_val is not None else ""
+                        "oauth_url": oauth_val if oauth_val is not None else "",
+                        "active_tools": [tool["name"] for tool in server_data.get("tools", []) if tool.get("active")]
+
                     }
                     try:
-                        key_name = f"MCP_{url_to_key(url)}"
+                        key_name = f"MCP_{url_to_name(url)}"
                         keyring.set_password("ApaChat", key_name, json.dumps(cred_info))
                     except Exception as e:
                         print(f"Failed to save MCP credentials for {url}: {e}")
