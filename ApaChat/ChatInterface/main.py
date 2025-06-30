@@ -1,15 +1,11 @@
 import tkinter as tk
 from tkinter import messagebox
 import tkinter.ttk as ttk
-from tkinter.scrolledtext import ScrolledText
 import asyncio
-import threading
-from functools import partial
 from ..Agent.Agent import Agent
 from ..Agent.Agent import url_to_name
 from ..LLM.LLM import available_LLM_providers
 
-from urllib.parse import urlparse
 from tkhtmlview import HTMLScrolledText
 import markdown
 

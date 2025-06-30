@@ -1,4 +1,3 @@
-import asyncio
 import base64
 from typing import Optional
 import logging
