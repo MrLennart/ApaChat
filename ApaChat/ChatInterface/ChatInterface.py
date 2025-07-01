@@ -116,7 +116,7 @@ class AsyncTk(tk.Tk):
     async def auto_connect_saved(self):
         llm_data = None
         try:
-            llm_data = self.get_cached_password( "LLM")
+            llm_data = self.get_cached_password("LLM")
         except Exception as e:
             print(f"Error accessing saved LLM credentials: {e}")
         if llm_data:
@@ -129,24 +129,25 @@ class AsyncTk(tk.Tk):
                     chosen_model = model if model in models else models[0]
                     self.agent.LLM.model = chosen_model
                     self.agent.selected_model = chosen_model
-                
             except Exception as e:
                 print(f"Auto-connect to LLM failed: {e}")
+
         mcp_list_json = None
         try:
-            mcp_list_json = self.get_cached_password( "MCP_list")
+            mcp_list_json = self.get_cached_password("MCP_list")
         except Exception as e:
             print(f"Error accessing saved MCP list: {e}")
+
         if mcp_list_json:
-            try:
-                saved_servers = mcp_list_json
-            except Exception as e:
-                saved_servers = []
+            saved_servers = mcp_list_json
+            connect_tasks = []
+            server_data_map = {}
+
             for url in saved_servers:
                 cred_json = None
                 try:
                     key_name = f"MCP_{url_to_name(url)}"
-                    cred_json = self.get_cached_password( key_name)
+                    cred_json = self.get_cached_password(key_name)
                 except Exception as e:
                     print(f"Error accessing credentials for MCP {url}: {e}")
                 if not cred_json:
@@ -156,23 +157,40 @@ class AsyncTk(tk.Tk):
                 token = data.get("token")
                 oauth_url = data.get("oauth_url")
                 server_name = url_to_name(url)
-                try:
-                    await self.agent.connect_MCP(url, auth, token if token not in [None, ""] else None,
-                                                 oauth_url if oauth_url not in [None, ""] else None)
-                except Exception as e:
-                    print(f"Auto-connect to MCP {url} failed: {e}")
+                server_data_map[server_name] = (url, data)
+                # Prepare the coroutine for this MCP connection
+                connect_tasks.append(
+                    self.agent.connect_MCP(
+                        url,
+                        auth,
+                        token if token not in [None, ""] else None,
+                        oauth_url if oauth_url not in [None, ""] else None
+                    )
+                )
+
+            # Run all MCP connections concurrently
+            results = await asyncio.gather(*connect_tasks, return_exceptions=True)
+
+            # Post-processing: set connected status and active tools
+            for idx, server_name in enumerate(server_data_map):
+                url, data = server_data_map[server_name]
+                result = results[idx]
+                if isinstance(result, Exception):
+                    print(f"Auto-connect to MCP {url} failed: {result}")
                     self.agent.mcp[server_name] = {
                         "connected": False,
                         "url": url,
-                        "auth": auth,
-                        "token": token,
-                        "oauth_url": oauth_url,
+                        "auth": data.get("auth"),
+                        "token": data.get("token"),
+                        "oauth_url": data.get("oauth_url"),
                         "tools": []
                     }
+                else:
+                    self.agent.mcp[server_name]["connected"] = True
+                # Set active tools if available
                 try:
-                    # Nach dem Laden der Credentials und dem Verbindungsaufbau:
                     active_tools = data.get("active_tools", [])
-                    for tool in self.agent.mcp[server_name]["tools"]:
+                    for tool in self.agent.mcp[server_name].get("tools", []):
                         try:
                             tool["active"] = tool["name"] in active_tools
                         except KeyError:
@@ -412,14 +430,13 @@ class AsyncTk(tk.Tk):
                 self.agent.mcp.pop(server_url, None)
                 # Remove credentials and list entry from keyring
                 if keyring:
-                    try:
-                        keyring.delete_password("ApaChat", f"MCP_{server_url}")
-                        # Load, update and save MCP_list
-                        list_json = self.get_cached_password( "MCP_list")
-                        if list_json:
-                            current_list = json.loads(list_json)
-                            if server_url in current_list:
-                                current_list.remove(server_url)
+                    try:                        # Load, update and save MCP_list using set_cached_password
+                        list_obj = self.get_cached_password("MCP_list")
+                        current_list = list_obj if list_obj else []
+                        for server in current_list:
+                            if url_to_name(server) == server_url:
+                                print(f"Removing {server_url} from MCP_list")
+                                current_list.remove(server)
                                 self.set_cached_password("MCP_list", current_list)
                     except Exception as e:
                         print(f"Failed to delete {server_url} from keyring: {e}")
@@ -581,7 +598,7 @@ class AsyncTk(tk.Tk):
                         current_list = []
                         list_json = self.get_cached_password( "MCP_list")
                         if list_json:
-                            current_list = json.loads(list_json)
+                            current_list = list_json
                         if url not in current_list:
                             current_list.append(url)
                         self.set_cached_password("MCP_list", current_list)
