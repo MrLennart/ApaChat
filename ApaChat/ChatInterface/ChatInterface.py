@@ -39,6 +39,8 @@ class AsyncTk(tk.Tk):
 
         self.chat_display.pack(expand=True, fill='both')
 
+        self.chat_display.config(state="disabled")  # Make chat display read-only
+
         self.chat_history_html = ""
 
 
@@ -62,7 +64,6 @@ class AsyncTk(tk.Tk):
 
     def get_cached_password(self, key):
         # Check in-memory cache first
-        print(self._credential_cache)
         if self._credential_cache and key in self._credential_cache:
             return self._credential_cache[key]
         if keyring:
@@ -80,7 +81,6 @@ class AsyncTk(tk.Tk):
         return None
 
     def set_cached_password(self, key, value):
-        print(f"Setting cached password for {key}")
         if not keyring:
             return
         try:
