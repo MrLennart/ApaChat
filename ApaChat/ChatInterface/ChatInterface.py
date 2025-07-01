@@ -242,7 +242,7 @@ class AsyncTk(tk.Tk):
     def open_llm_dialog(self):
         win = tk.Toplevel(self)
         win.title("Connect to LLM")
-        win.geometry("400x300")
+        win.geometry("400x450")
         tk.Label(win, text="Base URL").pack()
 
         # Get example provider names and URLs
@@ -277,6 +277,23 @@ class AsyncTk(tk.Tk):
         output_frame = tk.Frame(win)
         output_frame.pack(fill='both', expand=True)
 
+        # Add these lines for a scrollable models frame
+        canvas = tk.Canvas(output_frame, borderwidth=0, background="#222")
+        scrollbar = tk.Scrollbar(output_frame, orient="vertical", command=canvas.yview)
+        models_frame = tk.Frame(canvas, background="#222")
+
+        models_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+        canvas.create_window((0, 0), window=models_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
         connect_btn = tk.Button(win, text="Connect")
         connect_btn.pack(pady=5)
 
@@ -291,11 +308,11 @@ class AsyncTk(tk.Tk):
                 if url in name_to_url:
                     url = name_to_url[url]
                 models = await self.agent.connect_LLM(base_url=url, api_key=key_entry.get())
-                for widget in output_frame.winfo_children():
+                for widget in models_frame.winfo_children():
                     widget.destroy()
                 var = tk.StringVar()
                 for model in models:
-                    tk.Radiobutton(output_frame, text=model, variable=var, value=model).pack(anchor='w')
+                    tk.Radiobutton(models_frame, text=model, variable=var, value=model, background="#222", foreground="#fff", selectcolor="#444").pack(anchor='w')
                 if models:
                     var.set(models[0])
                     self.agent.LLM.model = models[0]
@@ -430,7 +447,6 @@ class AsyncTk(tk.Tk):
             tool_win = tk.Toplevel(win)
             tool_win.title(f"Tools - {server_url}")
             tool_win.geometry("500x400")
-# ...inside open_tool_dialog...
             filter_var = tk.StringVar()
             filter_entry = tk.Entry(tool_win, textvariable=filter_var)
             filter_entry.pack(fill='x', padx=5, pady=5)
