@@ -8,6 +8,8 @@ from ..LLM.LLM import available_LLM_providers
 
 from tkhtmlview import HTMLScrolledText
 from markdown import markdown
+import getpass
+
 
 
 
@@ -24,6 +26,7 @@ class AsyncTk(tk.Tk):
     def __init__(self, agent):
         super().__init__()
         self._credential_cache = {}
+        self.user=getpass.getuser()
 
         self.agent = agent
         self.title("ApaChat")
@@ -57,21 +60,41 @@ class AsyncTk(tk.Tk):
         self.disable_ui()
         self.after(0, lambda: asyncio.ensure_future(self.initialize_connections()))
 
-    def get_cached_password(self, service, key):
-        cache_key = (service, key)
-        if cache_key in self._credential_cache:
-            return self._credential_cache[cache_key]
+    def get_cached_password(self, key):
+        # Check in-memory cache first
+        print(self._credential_cache)
+        if self._credential_cache and key in self._credential_cache:
+            return self._credential_cache[key]
         if keyring:
             try:
-                value = keyring.get_password(service, key)
-                self._credential_cache[cache_key] = value
-                
-                return value
+                data = keyring.get_password("ApaChat", self.user)
+                if data is None:
+                    return None
+                # Try to load JSON from keyring
+                self._credential_cache = json.loads(data)
+
+                return self._credential_cache.get(key)
             except Exception as e:
                 print(f"Keyring error for {key}: {e}")
                 return None
         return None
 
+    def set_cached_password(self, key, value):
+        print(f"Setting cached password for {key}")
+        if not keyring:
+            return
+        try:
+            # Load existing cache from keyring if not present
+            if not self._credential_cache:
+                data = keyring.get_password("ApaChat", self.user)
+                if data:
+                    self._credential_cache = json.loads(data)
+                else:
+                    self._credential_cache = {}
+            self._credential_cache[key] = value
+            keyring.set_password("ApaChat", self.user, json.dumps(self._credential_cache))
+        except Exception as e:
+            print(f"Failed to save {key} to keyring: {e}")
 
     def disable_ui(self):
         self.entry.config(state='disabled')
@@ -91,14 +114,13 @@ class AsyncTk(tk.Tk):
             self.enable_ui()
 
     async def auto_connect_saved(self):
-        llm_data_json = None
+        llm_data = None
         try:
-            llm_data_json = self.get_cached_password("ApaChat", "LLM")
+            llm_data = self.get_cached_password( "LLM")
         except Exception as e:
             print(f"Error accessing saved LLM credentials: {e}")
-        if llm_data_json:
+        if llm_data:
             try:
-                llm_data = json.loads(llm_data_json)
                 base = llm_data.get("base_url")
                 api_key = llm_data.get("api_key")
                 model = llm_data.get("model")
@@ -112,24 +134,24 @@ class AsyncTk(tk.Tk):
                 print(f"Auto-connect to LLM failed: {e}")
         mcp_list_json = None
         try:
-            mcp_list_json = self.get_cached_password("ApaChat", "MCP_list")
+            mcp_list_json = self.get_cached_password( "MCP_list")
         except Exception as e:
             print(f"Error accessing saved MCP list: {e}")
         if mcp_list_json:
             try:
-                saved_servers = json.loads(mcp_list_json)
+                saved_servers = mcp_list_json
             except Exception as e:
                 saved_servers = []
             for url in saved_servers:
                 cred_json = None
                 try:
                     key_name = f"MCP_{url_to_name(url)}"
-                    cred_json = self.get_cached_password("ApaChat", key_name)
+                    cred_json = self.get_cached_password( key_name)
                 except Exception as e:
                     print(f"Error accessing credentials for MCP {url}: {e}")
                 if not cred_json:
                     continue
-                data = json.loads(cred_json)
+                data = cred_json
                 auth = data.get("auth")
                 token = data.get("token")
                 oauth_url = data.get("oauth_url")
@@ -162,12 +184,12 @@ class AsyncTk(tk.Tk):
         if not keyring:
             return
         key_name = f"MCP_{server_name}"
-        cred_json = self.get_cached_password("ApaChat", key_name)
+        cred_json = self.get_cached_password(key_name)
         if cred_json:
-            data = json.loads(cred_json)
+            data = cred_json
             tools = self.agent.mcp[server_name]["tools"]
             data["active_tools"] = [tool["name"] for tool in tools if tool.get("active")]
-            keyring.set_password("ApaChat", key_name, json.dumps(data))    
+            self.set_cached_password(key_name, data)    
 
     def poll_loop(self):
         try:
@@ -288,10 +310,11 @@ class AsyncTk(tk.Tk):
                             "model": var.get()
                         }
                         try:
-                            keyring.set_password("ApaChat", "LLM", json.dumps(creds))
+                            self.set_cached_password("LLM", creds)
                         except Exception as e:
                             print(f"Failed to save LLM credentials: {e}")
                     win.destroy()
+                win.protocol("WM_DELETE_WINDOW", save_selection)
                 tk.Button(win, text="OK", command=save_selection).pack(pady=5)
             except Exception as e:
                 messagebox.showerror("Error", str(e))
@@ -375,12 +398,12 @@ class AsyncTk(tk.Tk):
                     try:
                         keyring.delete_password("ApaChat", f"MCP_{server_url}")
                         # Load, update and save MCP_list
-                        list_json = self.get_cached_password("ApaChat", "MCP_list")
+                        list_json = self.get_cached_password( "MCP_list")
                         if list_json:
                             current_list = json.loads(list_json)
                             if server_url in current_list:
                                 current_list.remove(server_url)
-                                keyring.set_password("ApaChat", "MCP_list", json.dumps(current_list))
+                                self.set_cached_password("MCP_list", current_list)
                     except Exception as e:
                         print(f"Failed to delete {server_url} from keyring: {e}")
                 refresh_server_list()
@@ -487,7 +510,7 @@ class AsyncTk(tk.Tk):
                             cred_json = None
                             if keyring:
                                 try:
-                                    cred_json = self.get_cached_password("ApaChat", f"MCP_{server_url}")
+                                    cred_json = self.get_cached_password( f"MCP_{server_url}")
                                 except Exception as kr_err:
                                     print(f"Keyring lookup failed for {server_url}: {kr_err}")
                             # Use credentials from stored data or agent.mcp (set during auto_connect_saved if any)
@@ -540,12 +563,12 @@ class AsyncTk(tk.Tk):
                     # Update MCP list in keyring
                     try:
                         current_list = []
-                        list_json = self.get_cached_password("ApaChat", "MCP_list")
+                        list_json = self.get_cached_password( "MCP_list")
                         if list_json:
                             current_list = json.loads(list_json)
                         if url not in current_list:
                             current_list.append(url)
-                        keyring.set_password("ApaChat", "MCP_list", json.dumps(current_list))
+                        self.set_cached_password("MCP_list", current_list)
                     except Exception as e:
                         print(f"Failed to update MCP list in keyring: {e}")
                     # Save this server's credentials
@@ -559,7 +582,7 @@ class AsyncTk(tk.Tk):
                     }
                     try:
                         key_name = f"MCP_{url_to_name(url)}"
-                        keyring.set_password("ApaChat", key_name, json.dumps(cred_info))
+                        self.set_cached_password(key_name,cred_info)
                     except Exception as e:
                         print(f"Failed to save MCP credentials for {url}: {e}")
                 # Update the server list UI
