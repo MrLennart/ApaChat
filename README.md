@@ -23,13 +23,13 @@ The main interface to chat with your selected LLM:
 
 ### MCP Connection and Tool Selection
 Configure your MCP server and select available tools:
-![MCP and Tool Picker](./screenshots/LLMConnectionWindow.png)
+![MCP and Tool Picker](./screenshots/MCPConnectionWindow.png)
 
 ---
 
 ### LLM Connection
 Select your preferred language model and enter your API key:
-![LLM Picker](./screenshots/MCPConnectionWindow.png)
+![LLM Picker](./screenshots/LLMConnectionWindow.png)
 
 ---
 
