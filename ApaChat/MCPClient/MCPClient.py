@@ -100,7 +100,7 @@ def get_token(oauth_server_url:str=None,creds=None):
     try:
         creds=creds.encode("ascii")
         creds=base64.b64encode(creds)
-        headers={"Authorization": f"Basic {creds.decode("ascii")}","Content-Type":"application/x-www-form-urlencoded"}
+        headers={"Authorization": f'Basic {creds.decode("ascii")}',"Content-Type":"application/x-www-form-urlencoded"}
         params={"grant_type":"client_credentials"}
         token=requests.post(oauth_server_url,data=params,headers=headers)
         token=token.json()['access_token']

@@ -1,0 +1,5 @@
+requests
+tkhtmlview
+markdown
+mcp
+keyring
