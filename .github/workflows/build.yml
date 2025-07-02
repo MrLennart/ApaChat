@@ -1,0 +1,70 @@
+name: Cross-Platform Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on tag push like v1.0.0
+
+jobs:
+  build-windows:
+    name: Windows Build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+      - name: Build with PyInstaller
+        run: pyinstaller --noconfirm --onefile --name ApaChat main.py
+      - name: Upload Windows Binary
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/myapp.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-macos:
+    name: macOS Build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+      - name: Build with PyInstaller
+        run: pyinstaller --noconfirm --onefile --name ApaChat main.py
+      - name: Upload macOS Binary
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/myapp
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-linux:
+    name: Linux Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+      - name: Build with PyInstaller
+        run: pyinstaller --noconfirm --onefile --name ApaChat main.py
+      - name: Upload Linux Binary
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/myapp
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
