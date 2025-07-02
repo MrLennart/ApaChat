@@ -18,9 +18,9 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install pyinstaller
-      - name: Build with PyInstaller
-        run: pyinstaller --noconfirm --onefile --name ApaChat main.py
-      - name: Upload Windows Binary
+      - name: Build .exe
+        run: pyinstaller --noconfirm --onefile --windowed --name ApaChat main.py
+      - name: Upload Windows .exe
         uses: softprops/action-gh-release@v2
         with:
           files: dist/ApaChat.exe
@@ -28,7 +28,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-macos:
-    name: macOS Build
+    name: macOS Build (.app zipped)
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,17 +39,21 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install pyinstaller
-      - name: Build with PyInstaller
-        run: pyinstaller --noconfirm --onefile --name ApaChat main.py
-      - name: Upload macOS Binary
+      - name: Build .app bundle
+        run: pyinstaller --noconfirm --windowed --name ApaChat main.py
+      - name: Zip the .app bundle
+        run: |
+          cd dist
+          zip -r ApaChat-macos.zip ApaChat.app
+      - name: Upload macOS .app (.zip)
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/ApaChat
+          files: dist/ApaChat-macos.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-linux:
-    name: Linux Build
+    name: Linux Build (GUI binary)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,11 +64,16 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install pyinstaller
-      - name: Build with PyInstaller
-        run: pyinstaller --noconfirm --onefile --name ApaChat main.py
-      - name: Upload Linux Binary
+      - name: Build Linux binary
+        run: pyinstaller --noconfirm --onefile --windowed --name ApaChat main.py
+      - name: Rename and zip Linux binary
+        run: |
+          cd dist
+          mv ApaChat ApaChat-linux
+          zip ApaChat-linux.zip ApaChat-linux
+      - name: Upload Linux binary (.zip)
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/ApaChat
+          files: dist/ApaChat-linux.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

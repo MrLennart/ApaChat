@@ -1,5 +1,5 @@
 requests
-tkhtmlview
 markdown
+tkhtmlview
+openai
 mcp
-keyring
