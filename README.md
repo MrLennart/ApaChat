@@ -40,7 +40,7 @@ Select your preferred language model and enter your API key:
 Make sure the following Python packages are installed:
 
 ```bash
-pip install requests mcp tkhtmlview markdown tkinter asyncio keyring
+pip install requests mcp tkhtmlview markdown openai asyncio keyring
 ```
 
 > Note: On macOS, `tkinter` is usually pre-installed. On Linux, you might need to install it using your system's package manager (e.g., `sudo apt install python3-tk`).
