@@ -8,8 +8,10 @@ class Agent:
         self.LLM = None
         self.connected_status = False
         self.history = []
+        self.history.append({"role": "system", "content": self.load_system_prompt()})   
 
     async def get_response(self, user_input:str, temperature=0, max_tokens=2000):
+        print(self.history)
         if not self.LLM:
             raise RuntimeError("LLM client is not connected. Please connect to an LLM first.")
     # Prepend the tool prompt to the messages
@@ -131,6 +133,14 @@ class Agent:
             return (f"Tool '{tool_name}' executed successfully with result: {result}")
         else:
             return (f"Tool '{tool_name}' execution returned no result")
+        
+    def load_system_prompt(self):
+        try:
+            with open("ApaChat/Agent/system_prompt.txt", "r", encoding="utf-8") as f:
+                return f.read().strip()
+        except Exception as e:
+            print(f"Could not load system prompt: {e}")
+            return "You are a helpful assistant."
 
 
 def url_to_name(url: str) -> str:
